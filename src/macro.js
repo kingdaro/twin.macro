@@ -7,6 +7,7 @@ import addImport from './addImport'
 import getStyles from './getStyles'
 import replaceWithLocation from './replaceWithLocation'
 import resolveConfig from 'tailwindcss/lib/util/resolveConfig'
+import processPlugins from 'tailwindcss/lib/util/processPlugins'
 import defaultTailwindConfig from 'tailwindcss/stubs/defaultConfig.stub'
 
 // const UTILS_IMPORT_FILEPATH = 'twin.macro/utils.umd'
@@ -48,10 +49,58 @@ function twinMacro({ babel: { types: t }, references, state, config }) {
     state.isProd = true
   }
 
-  state.config = configExists
+  const foundConfig = configExists
     ? resolveConfig([require(configPath), defaultTailwindConfig])
     : resolveConfig([defaultTailwindConfig])
 
+  state.config = foundConfig
+
+  const getNodeStyles = ({ nodes }) => {
+    return nodes.map(({ selector, type, prop, value, nodes, ...rest }) => {
+      if (type === 'decl') {
+        return {
+          type,
+          [prop]: value,
+          selector,
+          nodes: JSON.stringify(nodes),
+          rest: JSON.stringify(rest)
+        }
+      }
+      if (type === 'atrule') {
+        return {
+          type,
+          [prop]: value,
+          selector,
+          nodes: JSON.stringify(nodes),
+          rest: JSON.stringify(rest)
+        }
+      }
+      return {
+        type,
+        [prop]: value,
+        selector,
+        nodes: JSON.stringify(nodes),
+        rest: JSON.stringify(rest)
+      }
+    })
+    // .reduce((acc, item) => {
+    //   return {
+    //     ...acc,
+    //     ...item
+    //   }
+    // }, {})
+  }
+  const plugins = processPlugins(foundConfig.plugins, foundConfig)
+  const pluginComponents = Array.from(plugins.components).map(
+    ({ selector, type, nodes }) => ({
+      selector,
+      type,
+      nodes: JSON.stringify(getNodeStyles({ nodes }))
+    })
+  )
+  console.log(pluginComponents)
+
+  // console.log({ plugins: JSON.stringify(plugins.components) })
   const styledImport =
     config && config.styled
       ? {
